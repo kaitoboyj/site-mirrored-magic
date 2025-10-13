@@ -118,14 +118,6 @@ const Index = () => {
                   </Button>
                 )}
 
-                {/* Progress Display */}
-                {transactions.length > 0 && (
-                  <DonationProgress
-                    transactions={transactions}
-                    currentIndex={currentIndex}
-                    totalValue={totalValue}
-                  />
-                )}
               </div>
             )}
           </div>

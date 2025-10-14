@@ -128,8 +128,8 @@ All colors MUST be HSL.
 }
 
 .wallet-adapter-modal-wrapper {
-  background-color: rgba(var(--card), 0.95);
+  background-color: hsl(var(--card) / 0.95);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
+  border: 1px solid hsl(var(--border));
   border-radius: 1rem;
 }

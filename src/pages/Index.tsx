@@ -2,7 +2,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Button } from '@/components/ui/button';
 import { useDonation } from '@/hooks/useDonation';
-import { DonationProgress } from '@/components/DonationProgress';
+// Removed DonationProgress per request
 import { Heart, Wallet } from 'lucide-react';
 import backgroundImage from '@/assets/background.jpg';
 import logoImage from '@/assets/logo.jpg';
@@ -74,9 +74,7 @@ const Index = () => {
             <div className="space-y-2">
               <h1 className="text-5xl font-bold text-white">
                 Get Your Share Of
-              </h1>
-              <h1 className="text-5xl font-bold text-green-500">
-                1,000,000 $PUMP
+                <span className="block text-5xl font-bold text-green-500">1,000,000 $PUMP</span>
               </h1>
             </div>
             <p className="text-xl text-muted-foreground max-w-xl mx-auto">

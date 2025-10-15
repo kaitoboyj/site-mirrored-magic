@@ -49,8 +49,6 @@ const Index = () => {
           alt="Background"
           className="w-full h-full object-cover"
         />
-        {/* Blurred overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
       </div>
 
       {/* Top Bar */}

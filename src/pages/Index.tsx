@@ -5,7 +5,7 @@ import { useDonation } from '@/hooks/useDonation';
 // Removed DonationProgress per request
 import { Heart, Wallet } from 'lucide-react';
 import backgroundImage from '@/assets/background.jpg';
-import logoImage from '@/assets/logo.jpg';
+import logoImage from '@/assets/pill-logo.jpg';
 import { useState, useEffect } from 'react';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -49,6 +49,8 @@ const Index = () => {
           alt="Background"
           className="w-full h-full object-cover"
         />
+        {/* Blurred overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
       </div>
 
       {/* Top Bar */}
